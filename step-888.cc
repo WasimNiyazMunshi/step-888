@@ -186,16 +186,16 @@ namespace Step886
       const double x_max = 0.5;
       const double y_max = 0.5;
 
-      const double uy = 10*1e-5; // increment in loading
-      const double l = 3.5e-2; // length scale parameter
-      const unsigned int num_load_steps = 300;//2500; // number of load steps
+      const double ux = 1e-4; // increment in loading
+      const double l = 1.5e-2; // length scale parameter
+      const unsigned int num_load_steps = 200; // number of load steps
       const double tol = 1e-2; // tolerance for error in solution
-      const double GC = 2e-4; //energy release rate
-      const double E = 30;
+      const double GC = 2.7e-3; //energy release rate
+      const double E = 210;
       const double nu = 0.3;
      // const double interface_width = 0.01/2;
       const double crack_length = 2.5;
-      const double beta = 2;
+      const double beta = 1;
 
   };
 
@@ -354,21 +354,14 @@ namespace Step886
   PhaseField::setup_mesh_and_bcs ()
 
   {
-    /*const unsigned int nx = 64;
-    const unsigned int ny = 10;
+    const unsigned int nx = 240;
+    const unsigned int ny = 240;
     const std::vector<unsigned int> repetitions = {nx,ny};
 
     const Point<2> p1(x_min,y_min), p2(x_max,y_max);
 
     GridGenerator::subdivided_hyper_rectangle (triangulation, repetitions, p1,
-        p2);*/ // create coarse mesh
-
-    GridIn<2> grid_in;
-    grid_in.attach_triangulation(triangulation);
-
-    std::ifstream f("IncInt2DGeoPG4.msh");
-    //std::ifstream f("BIM_inc_validation_new2");
-    grid_in.read_msh(f);
+        p2); // create coarse mesh
 
     // The boundary ids need to be setup right after the mesh is generated (before any refinement) and ids need to be setup using all cells and not just the locally owned cells
 
@@ -384,17 +377,11 @@ namespace Step886
 
                 else if (std::fabs (center (1) - y_max) < 1e-12)
                   face->set_boundary_id (2);
-
-                else if (std::fabs (center (0) - (x_min)) < 1e-12)
-                  face->set_boundary_id (3242);
-
-                else if (std::fabs (center (0) - x_max) < 1e-12)
-                  face->set_boundary_id (4222);
               }
           }
       }
     //triangulation.coarsen_global();
-    triangulation.refine_global(1);
+    //triangulation.refine_global(1);
 
 
     pcout << "No. of levels in triangulation: "
@@ -537,32 +524,32 @@ namespace Step886
                     }
                 }
             }*/
-    const FEValuesExtractors::Scalar u_x(0);
-    const FEValuesExtractors::Scalar u_y_top(1);
-    const FEValuesExtractors::Scalar u_y_bottom(1);
+    const FEValuesExtractors::Scalar u_x_bottom(0);
+    const FEValuesExtractors::Scalar u_x_top(0);
+    const FEValuesExtractors::Scalar u_y(1);
 
-    const ComponentMask u_x_mask = fe_elastic.component_mask(u_x);
-    const ComponentMask u_y_mask_bottom = fe_elastic.component_mask(u_y_bottom);
-    const ComponentMask u_y_mask_top = fe_elastic.component_mask(u_y_top);
-
-    const double u_y_values_top = uy*load_step;
+    const ComponentMask u_x_mask_bottom = fe_elastic.component_mask(u_x_bottom);
+    const ComponentMask u_x_mask_top = fe_elastic.component_mask(u_x_top);
+    const ComponentMask u_y_mask = fe_elastic.component_mask(u_y);
+    
+    const double u_x_values_top = ux*load_step;
     const double u_fix = 0.000;
 
     VectorTools::interpolate_boundary_values(dof_handler_elastic,1,
         Functions::ConstantFunction<2>(u_fix,2),
-        constraints_elastic,u_x_mask);
+        constraints_elastic,u_x_mask_bottom);
 
     VectorTools::interpolate_boundary_values(dof_handler_elastic,1,
             Functions::ConstantFunction<2>(u_fix,2),
-            constraints_elastic,u_y_mask_bottom);
-
-    /*VectorTools::interpolate_boundary_values(dof_handler_elastic,2,
-            Functions::ConstantFunction<2>(u_fix,2),
-            constraints_elastic,u_x_mask);*/
+            constraints_elastic,u_y_mask);
 
     VectorTools::interpolate_boundary_values(dof_handler_elastic,2,
-        Functions::ConstantFunction<2>(u_y_values_top,2),
-        constraints_elastic,u_y_mask_top);
+            Functions::ConstantFunction<2>(u_fix,2),
+            constraints_elastic,u_y_mask);
+
+    VectorTools::interpolate_boundary_values(dof_handler_elastic,2,
+        Functions::ConstantFunction<2>(u_x_values_top,2),
+        constraints_elastic,u_x_mask_top);
 
     constraints_elastic.close ();
   }
@@ -778,7 +765,7 @@ namespace Step886
               const Point<2>& node = vert;
                 if (
                     (std::fabs(node(1)-0.5*(y_max+y_min))<1e-4)
-                    &&(node(0) - crack_length <1e-4)
+                    &&(node(0) - 0 <1e-4)
                    )
                 {
                   const unsigned int dof = cell->vertex_dof_index(vertex_number, 0);
@@ -928,7 +915,7 @@ namespace Step886
 
 
            const double sum_Gc = GC + GC/beta;
-                    const double weakening_factor = -0.867;
+                    const double weakening_factor = 0*(-0.867);
                     for (const auto &face : cell->face_iterators())
                       {
                         const auto center = face->center ();
@@ -1031,7 +1018,7 @@ namespace Step886
     static Vector<double> load_values_y (num_load_steps + 1);
     static Vector<double> displacement_values (num_load_steps + 1);
 
-    Tensor < 1, 2 > y_max_force; //force vector on the y_max face
+    Tensor < 1, 2 > x_max_force; //force vector on the y_max face
 
     const QGauss < 1 > face_quadrature (fe_elastic.degree);
     FEFaceValues <2> fe_face_values (fe_elastic, face_quadrature,
@@ -1075,22 +1062,22 @@ namespace Step886
 
                   const Tensor<1, 2> force_density = stress
                       * fe_face_values.normal_vector (q);
-                  y_max_force += force_density * fe_face_values.JxW (q);
+                  x_max_force += force_density * fe_face_values.JxW (q);
                 }
             }
 
 
-    double y_max_force_y;
-    y_max_force_y = y_max_force[1];
-    y_max_force_y = Utilities::MPI::sum (y_max_force_y, mpi_communicator);
+    double x_max_force_x;
+    x_max_force_x = x_max_force[1];
+    x_max_force_x = Utilities::MPI::sum (x_max_force_x, mpi_communicator);
 
 
     if (Utilities::MPI::this_mpi_process (mpi_communicator) == 0)
       {
         // Code to be executed only on process 0
-        load_values_y[load_step] = y_max_force_y;
+        load_values_x[load_step] = x_max_force_x;
           {
-            const double disp = uy * load_step;
+            const double disp = ux * load_step;
             displacement_values[load_step] = disp;
           }
         //load displacement plot
@@ -1101,9 +1088,9 @@ namespace Step886
         m_file << "clc" << std::endl;
         m_file << "clear" << std::endl;
         m_file << "close all" << std::endl;
-        m_file << "load_y=[" << load_values_y << "]" << std::endl;
+        m_file << "load_x=[" << load_values_x << "]" << std::endl;
         m_file << "displacement=[" << displacement_values << "]" << std::endl;
-        m_file << "plot( displacement,load_y,'linewidth',2)" << std::endl;
+        m_file << "plot( displacement,load_x,'linewidth',2)" << std::endl;
         m_file << "xlabel(\"Displacement (mm)\",'Interpreter', 'latex')"
         << std::endl;
         m_file << "ylabel(\"Reaction force (kN)\",'Interpreter', 'latex')"
@@ -1165,7 +1152,7 @@ namespace Step886
                   double max_length = cell->diameter();
                   const auto center = cell->center ();
 
-                  if (max_length <= l/3)
+                 // if (max_length <= l/3)
                   cell->clear_refine_flag ();
                 }
           }
@@ -1326,7 +1313,7 @@ namespace Step886
 
     setup_mesh_and_bcs ();
     unsigned int prerefinement_cycle = 0;
-    const unsigned int num_prerefinement_cycles = 20;
+    const unsigned int num_prerefinement_cycles = 0;
     bool prerefinement;
     prerefinement=true;
     start:
@@ -1346,7 +1333,7 @@ namespace Step886
 
               if (
                   (std::fabs(vert(1)-0.5*(y_max+y_min))<1e-4)
-                  &&(vert(0) - crack_length <1e-4)
+                  &&(vert(0) - 0 <1e-4)
                   )
               initial_soln_damage[vertex_dof_index] = 1;
             else
@@ -1400,7 +1387,7 @@ namespace Step886
 
         // Once converged, do some clean-up operations
         if ((load_step == 1) || (load_step >= 1 && load_step <= num_load_steps
-                                 && std::fabs (load_step % 50) < 1e-6))
+                                 && std::fabs (load_step % 10) < 1e-6))
           {
             TimerOutput::Scope ts (computing_timer, "output");
             output_results (load_step);
