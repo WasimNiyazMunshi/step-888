@@ -181,10 +181,10 @@ namespace Step886
 
       CellDataStorage<typename Triangulation<2>::cell_iterator, MyQData> quadrature_point_history_field;
 
-      const double x_min = 0;
-      const double y_min = 0;
-      const double x_max = 10;
-      const double y_max = 10;
+      const double x_min = -0.5;
+      const double y_min = -0.5;
+      const double x_max = 0.5;
+      const double y_max = 0.5;
 
       const double uy = 10*1e-5; // increment in loading
       const double l = 3.5e-2; // length scale parameter
