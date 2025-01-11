@@ -1015,7 +1015,7 @@ namespace Step886
 
   {
     // TODO: You mark these vectors as 'static' because you want them to carry state from one call to this function to the next. That is exactly what member variables are there for -- so make these vectors member variables.
-    static Vector<double> load_values_y (num_load_steps + 1);
+    static Vector<double> load_values_x (num_load_steps + 1);
     static Vector<double> displacement_values (num_load_steps + 1);
 
     Tensor < 1, 2 > x_max_force; //force vector on the y_max face
